@@ -15,7 +15,7 @@
 
 ## מודול 1 — הרצאת TED: צינור התסריט ולולאת האיכות   [~]   (ענף: feature/ted-script)
 - [x] 1.1 התוכנית לפני הקוד
-- [ ] 1.2 הסכמות (TalkBrief, CritiqueResult)
+- [x] 1.2 הסכמות (TalkBrief, CritiqueResult)
 - [ ] 1.3 מודלים ופרומפטים (models.py, prompts.py)
 - [ ] 1.4 ה-state וקבועי האורך (state.py)
 - [ ] 1.5 node ראשון והרצה ראשונה (plan_talk) 🧠+⚙️
