@@ -22,6 +22,9 @@ env/
 .env
 .env.*
 
+# MCP server config (contains the tutor server's auth token)
+.mcp.json
+
 # Editor directories and files
 .vscode/
 .idea/
