@@ -16,3 +16,13 @@ def format_docs(docs: list[Document]) -> str:
         source = doc.metadata.get("source", "unknown")
         blocks.append(f"[{i}] (source: {source})\n{doc.page_content.strip()}")
     return "\n\n".join(blocks)
+
+
+def build_sources_overview(store) -> str:
+    parts = []
+    for s in store.list():
+        if not s.active:
+            continue
+        summary = s.summary or s.content[:500]
+        parts.append(f"### {s.name}\n{summary}")
+    return "\n\n".join(parts)  

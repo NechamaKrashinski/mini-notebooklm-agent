@@ -9,6 +9,7 @@ from langchain_cohere import CohereEmbeddings
 from langchain_core.documents import Document
 
 from core.sources import chunk_source
+from agents.summarize import summarize
 
 EMBEDDINGS_MODEL = CohereEmbeddings(
     cohere_api_key=os.getenv("COHERE_API_KEY"), model="embed-multilingual-v3.0"
@@ -21,6 +22,7 @@ class Source:
     name: str
     content: str
     active: bool = True
+    summary: str | None = None
 
 
 @dataclass
@@ -41,6 +43,7 @@ class SourceStore:
     # add
     def add(self, name: str, content: str) -> Source:
         source = Source(id=uuid.uuid4().hex[:8], name=name, content=content)
+        source.summary = summarize(name, content)
         self._sources[source.id] = source
         chunks = chunk_source(source.id, source.name, source.content)
         if self._vector_store is None:
