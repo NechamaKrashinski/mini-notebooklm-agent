@@ -25,6 +25,9 @@ env/
 # MCP server config (contains the tutor server's auth token)
 .mcp.json
 
+# Personal working notes, not course content
+על-איך-את-עובדת.md
+
 # Editor directories and files
 .vscode/
 .idea/
