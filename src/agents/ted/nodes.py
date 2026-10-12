@@ -1,4 +1,6 @@
-from agents.ted.state import TedState
+import re
+
+from agents.ted.state import TedState,HARD_CAP, WORD_MAX, WORD_MIN
 from agents.ted.prompts import PLAN_TALK_SYSTEM,PLAN_TALK_USER,WRITE_TALK_SYSTEM,WRITE_TALK_USER
 from agents.ted.models import get_model
 from core.sources import build_sources_overview, format_docs
@@ -38,4 +40,23 @@ def write_talk(state:TedState) -> dict:
         {"role": "user", "content": WRITE_TALK_USER.format(topic=state["brief"].topic,hook=state["brief"].hook,key_points="\n".join(f"- {p}" for p in brief.key_points),context=context)}
     ])
     return {"script_he": write.text.strip()}
+
+
+def _sentences(text: str) -> list[str]:
+    return re.split(r"(?<=[.!?])\s+", text.strip())
+
+
+def count_words(state: TedState) -> dict:
+    script = state["script_he"]
+    if len(script.split()) <= HARD_CAP:
+        return {"word_count":len(script.split())}
+    kept, used = [], 0
+    for sentence in _sentences(script):
+        n = len(sentence.split())
+        if kept and used + n > HARD_CAP:
+            break
+        kept.append(sentence)
+        used += n
+    trimmed = " ".join(kept)
+    return {"script_he": trimmed, "word_count": len(trimmed.split())}
 

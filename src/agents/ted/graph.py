@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, START, END
-from agents.ted.nodes import plan_talk, gather_context, write_talk
+from agents.ted.nodes import count_words, plan_talk, gather_context, write_talk
 from agents.ted.state import TedState
 
 
@@ -9,9 +9,10 @@ def build_ted_graph():
     graph.add_node(plan_talk)
     graph.add_node(gather_context)
     graph.add_node(write_talk)
+    graph.add_node(count_words)
     graph.add_edge(START,"plan_talk")
     graph.add_edge("plan_talk","gather_context")
     graph.add_edge("gather_context","write_talk")
-    graph.add_edge("write_talk",END)
-    
+    graph.add_edge("write_talk","count_words")
+    graph.add_edge("count_words",END)
     return graph.compile()
