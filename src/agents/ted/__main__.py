@@ -28,3 +28,7 @@ result = build_ted_graph().invoke({"job_id": "test"})
 # result["brief"] is a validated TalkBrief (Pydantic); model_dump() turns it
 # into a plain dict so json.dumps can print it readably in Hebrew.
 print(json.dumps(result["brief"].model_dump(), indent=2, ensure_ascii=False))
+
+print("--- script ---")
+print(result["script_he"])
+print(f"\n({len(result['script_he'].split())} מילים)")
