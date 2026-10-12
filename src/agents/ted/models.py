@@ -10,6 +10,6 @@ MODELS = {
 def get_model(role:str):
     return init_chat_model(
         **MODELS[role],
-        timeout=30,max_tokens=1000,
+        timeout=90,max_tokens=2500,
         max_retries=6
         )
