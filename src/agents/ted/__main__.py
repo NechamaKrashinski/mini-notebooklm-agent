@@ -23,7 +23,21 @@ for arg in sys.argv[1:]:
     store.add(name=path.name, content=path.read_text(encoding="utf-8"))
     print(f"loaded source: {path.name}")
 
-result = build_ted_graph().invoke({"job_id": "test"})
+ted_graph = build_ted_graph()
+final_state = None
+for mode,chunk in ted_graph.stream(
+    {"job_id": "test"},
+    config={"recursion_limit": 25},
+    stream_mode=["updates", "values"]
+    ):
+    if mode == "updates":
+        for node in chunk:
+            print(f">>> {node} done")
+    else:
+        final_state = chunk
+result = final_state
+
+
 
 # result["brief"] is a validated TalkBrief (Pydantic); model_dump() turns it
 # into a plain dict so json.dumps can print it readably in Hebrew.
@@ -33,3 +47,8 @@ print("--- script ---")
 print(result["script_he"])
 print(f"\n({len(result['script_he'].split())} מילים)")
 print(f"word_count (מהקוד): {result['word_count']}")
+
+if result.get("critique"):
+    print("critique passed:", result["critique"].passed)
+    print("issues:", result["critique"].issues)
+print("revisions:", result["revision_count"])
