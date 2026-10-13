@@ -25,9 +25,14 @@ for arg in sys.argv[1:]:
 
 ted_graph = build_ted_graph()
 final_state = None
+config = {
+    "recursion_limit": 25,
+    "run_name": "ted-talk",
+    "metadata": {"job_id": "test"},
+}
 for mode,chunk in ted_graph.stream(
     {"job_id": "test"},
-    config={"recursion_limit": 25},
+    config=config,
     stream_mode=["updates", "values"]
     ):
     if mode == "updates":
