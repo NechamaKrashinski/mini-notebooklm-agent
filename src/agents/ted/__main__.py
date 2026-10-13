@@ -12,6 +12,9 @@ import json
 import sys
 from pathlib import Path
 
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
+
 from core.store import store
 from agents.ted.graph import build_ted_graph
 
@@ -23,37 +26,40 @@ for arg in sys.argv[1:]:
     store.add(name=path.name, content=path.read_text(encoding="utf-8"))
     print(f"loaded source: {path.name}")
 
-ted_graph = build_ted_graph()
-final_state = None
+# InMemorySaver: enough for this interactive CLI test (interrupt() needs a
+# checkpointer to pause/resume), but it does not survive a process restart —
+# step 2.2 swaps it for a real one.
+ted_graph = build_ted_graph(checkpointer=InMemorySaver())
 config = {
+    "configurable": {"thread_id": "test"},
     "recursion_limit": 25,
     "run_name": "ted-talk",
     "metadata": {"job_id": "test"},
 }
-for mode,chunk in ted_graph.stream(
-    {"job_id": "test"},
-    config=config,
-    stream_mode=["updates", "values"]
-    ):
-    if mode == "updates":
-        for node in chunk:
-            print(f">>> {node} done")
-    else:
-        final_state = chunk
-result = final_state
 
+result = ted_graph.invoke({"job_id": "test"}, config)
 
+# The graph pauses at the approval node and reports back via __interrupt__.
+# Loop so the human can ask for more than one round of changes.
+while "__interrupt__" in result:
+    payload = result["__interrupt__"][0].value
+    print("--- script ---")
+    print(payload["script_he"])
+    print(f"\n({payload['word_count']} מילים, {payload['revision_count']} תיקונים)")
+    if payload["critique_notes"]:
+        print("הערות המבקר האחרונות:", payload["critique_notes"])
+
+    answer = input("\nלאשר? (y = אישור / כל טקסט אחר = משוב לשינוי): ").strip()
+    resume = {"action": "approve"} if answer.lower() == "y" else {"action": "revise", "feedback": answer}
+    result = ted_graph.invoke(Command(resume=resume), config)
+
+print("\nההרצאה אושרה — הגרף הסתיים.")
 
 # result["brief"] is a validated TalkBrief (Pydantic); model_dump() turns it
 # into a plain dict so json.dumps can print it readably in Hebrew.
 print(json.dumps(result["brief"].model_dump(), indent=2, ensure_ascii=False))
 
-print("--- script ---")
+print("--- final script ---")
 print(result["script_he"])
-print(f"\n({len(result['script_he'].split())} מילים)")
-print(f"word_count (מהקוד): {result['word_count']}")
-
-if result.get("critique"):
-    print("critique passed:", result["critique"].passed)
-    print("issues:", result["critique"].issues)
+print(f"\n({result['word_count']} מילים)")
 print("revisions:", result["revision_count"])

@@ -1,5 +1,5 @@
 import re
-
+from langgraph.types import interrupt
 from agents.ted.state import MAX_REVISIONS, TedState,HARD_CAP, WORD_MAX, WORD_MIN
 from agents.ted.prompts import PLAN_TALK_SYSTEM,PLAN_TALK_USER,WRITE_TALK_SYSTEM,WRITE_TALK_USER,CRITIQUE_SYSTEM,CRITIQUE_USER,REVISE_SYSTEM,REVISE_USER
 from agents.ted.models import get_model
@@ -76,7 +76,7 @@ def after_critique(state: TedState) -> dict:
 
 def revise(state: TedState) -> dict:
     critique =state.get("critique")
-    issues = "\n".join(f"- {issue}" for issue in critique.issues) if critique and critique.issues else "אין"
+    issues = "\n".join(f"- {issue}" for issue in critique.issues) if critique and critique.issues else None
     llm = get_model("writing")
     response = llm.invoke([
         {"role": "system", "content": REVISE_SYSTEM.format(target_words=TARGET_WORDS, word_min=WORD_MIN, word_max=WORD_MAX)},
@@ -84,11 +84,31 @@ def revise(state: TedState) -> dict:
             script=state["script_he"],
             word_count=state["word_count"],
             issues=issues,
-            human_feedback="אין",
+            human_feedback=state["human_feedback"] if state.get("human_feedback") else None,
             context=state["context"],
         )}
     ])
     return {
         "script_he": response.text.strip(),
         "revision_count": state["revision_count"] + 1,
+        "human_feedback": None
     }
+
+def approval(state: TedState) -> dict:
+    decision = interrupt({
+        "topic": state["brief"].topic,
+        "script_he": state["script_he"],
+        "word_count": state["word_count"],
+        "revision_count": state["revision_count"],
+        "critique_notes": state["critique"].issues if state.get("critique") else [],
+    })
+
+    if decision.get("action") == "revise":
+        return {"human_feedback": decision.get("feedback") or "המשתמש/ת ביקש/ה גרסה משופרת."}
+    return {"human_feedback": None}
+
+    
+def after_approval(state: TedState) -> dict:
+    if state.get("human_feedback"):
+        return "revise"
+    return "done"
