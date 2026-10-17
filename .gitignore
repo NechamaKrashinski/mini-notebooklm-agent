@@ -52,5 +52,9 @@ htmlcov/
 *.sqlite
 data/
 
+# Scratch test scripts and generated audio (not course content)
+scripts/
+*.mp3
+
 # Cache
 .cache/
