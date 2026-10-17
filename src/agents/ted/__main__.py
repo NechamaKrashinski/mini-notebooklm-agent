@@ -12,11 +12,8 @@ import json
 import sys
 from pathlib import Path
 
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import Command
-
 from core.store import store
-from agents.ted.graph import build_ted_graph
+from agents.ted import run_start, run_resume
 
 # Each CLI arg is a path to a text file; load it as a source so plan_talk
 # has something to plan from (the store is in-memory, so a fresh process
@@ -26,23 +23,13 @@ for arg in sys.argv[1:]:
     store.add(name=path.name, content=path.read_text(encoding="utf-8"))
     print(f"loaded source: {path.name}")
 
-# InMemorySaver: enough for this interactive CLI test (interrupt() needs a
-# checkpointer to pause/resume), but it does not survive a process restart —
-# step 2.2 swaps it for a real one.
-ted_graph = build_ted_graph(checkpointer=InMemorySaver())
-config = {
-    "configurable": {"thread_id": "test"},
-    "recursion_limit": 25,
-    "run_name": "ted-talk",
-    "metadata": {"job_id": "test"},
-}
+JOB_ID = "test"
 
-result = ted_graph.invoke({"job_id": "test"}, config)
+payload = run_start(JOB_ID)
 
 # The graph pauses at the approval node and reports back via __interrupt__.
 # Loop so the human can ask for more than one round of changes.
-while "__interrupt__" in result:
-    payload = result["__interrupt__"][0].value
+while True:
     print("--- script ---")
     print(payload["script_he"])
     print(f"\n({payload['word_count']} מילים, {payload['revision_count']} תיקונים)")
@@ -51,7 +38,10 @@ while "__interrupt__" in result:
 
     answer = input("\nלאשר? (y = אישור / כל טקסט אחר = משוב לשינוי): ").strip()
     resume = {"action": "approve"} if answer.lower() == "y" else {"action": "revise", "feedback": answer}
-    result = ted_graph.invoke(Command(resume=resume), config)
+    result = run_resume(JOB_ID, resume)
+    if "__interrupt__" not in result:
+        break
+    payload = result["__interrupt__"][0].value
 
 print("\nההרצאה אושרה — הגרף הסתיים.")
 

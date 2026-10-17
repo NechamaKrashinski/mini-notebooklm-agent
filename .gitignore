@@ -49,6 +49,8 @@ htmlcov/
 # Logs and databases
 *.log
 *.sqlite3
+*.sqlite
+data/
 
 # Cache
 .cache/
