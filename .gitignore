@@ -56,5 +56,8 @@ data/
 scripts/
 *.mp3
 
+# Standalone Cloud Run TTS service (deployed separately, not part of this repo's app)
+tts-services/
+
 # Cache
 .cache/
