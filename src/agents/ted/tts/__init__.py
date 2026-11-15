@@ -10,4 +10,7 @@ def get_provider() -> TTSProvider:
     if name == "elevenlabs":
         from .elevenlabs import ElevenLabsTTS
         return ElevenLabsTTS()
+    if name == "cloudrun":
+        from .cloudrun import CloudRunTTS
+        return CloudRunTTS()
     raise ValueError(f"Unknown TTS provider: {name}")
