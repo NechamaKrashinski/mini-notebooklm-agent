@@ -11,5 +11,6 @@ def get_model(role:str):
     return init_chat_model(
         **MODELS[role],
         timeout=90,max_tokens=2500,
-        max_retries=6
+        max_retries=6,
+        disable_streaming=True,
         )

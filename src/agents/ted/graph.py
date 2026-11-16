@@ -2,6 +2,7 @@ from langgraph.graph import StateGraph, START, END
 from agents.ted.nodes import after_approval, after_critique, approval, count_words, critique_script, plan_talk, gather_context, revise, write_talk, synthesize_audio 
 from agents.ted.state import TedState
 from langgraph.types import RetryPolicy
+from pathlib import Path
 
 
 
@@ -26,4 +27,17 @@ def build_ted_graph(checkpointer=None):
     graph.add_edge("synthesize_audio", END)
     return graph.compile(checkpointer=checkpointer)
 
+def build_ted_graph_for_server():
+    """Zero-arg factory for langgraph dev/Studio, which injects values into any
+    recognized parameter (e.g. checkpointer) and provides its own persistence."""
+    # Studio runs in its own process: the app's in-memory sources aren't here,
+    # and the Netfree SSL workaround from serve.py hasn't run.
+    from netfree_unstrict_ssl import unstrict_ssl
+    unstrict_ssl()
+
+    from core.store import store
+    if not store.list():
+        for path in Path("data/studio_sources").glob("*.*"):
+            store.add(name=path.name, content=path.read_text(encoding="utf-8"))
+    return build_ted_graph()
 
