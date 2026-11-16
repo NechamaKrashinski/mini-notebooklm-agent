@@ -84,6 +84,29 @@ class GenerateArtifactRequest(BaseModel):
     impl: Impl = "A"
 
 
+# -- ted talks -----------------------------------------------------------------
+
+
+class TedJob(BaseModel):
+    """A TED talk job. Status comes from ted_jobs; the content from the checkpoint."""
+
+    job_id: str
+    status: Literal["pending_approval", "audio_ready", "failed"]
+    created_at: str
+    topic: str | None = None
+    script_he: str | None = None
+    word_count: int | None = None
+    revision_count: int | None = None
+    critique_notes: list[str] = Field(default_factory=list)
+    audio_url: str | None = None
+    error: str | None = None
+
+
+class TedResumeRequest(BaseModel):
+    action: Literal["approve", "revise"]
+    feedback: str | None = None
+
+
 # -- notes ---------------------------------------------------------------------
 
 

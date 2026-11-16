@@ -129,6 +129,31 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .note-list .n-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .note-empty { color: var(--muted); font-size: 12px; padding: 0 16px; }
 
+/* busy indicator: a "breathing" mic + bouncing dots for long-running calls */
+.busy-icon { display: inline-block; margin-inline-end: 6px; animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.35); } }
+.dots { display: inline-flex; gap: 3px; margin-inline-start: 6px; }
+.dots span {
+  width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+  animation: bounce 1.2s ease-in-out infinite;
+}
+.dots span:nth-child(2) { animation-delay: .2s; }
+.dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-5px); opacity: 1; } }
+
+/* ted talks */
+.ted-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.ted-status.audio_ready { color: var(--accent-2); }
+.ted-status.failed { color: var(--danger); }
+.ted-body { display: flex; flex-direction: column; gap: 10px; padding: 12px 18px 0; overflow: auto; }
+.ted-body audio { width: 100%; }
+.ted-critique { margin: 0; padding-inline-start: 18px; font-size: 12px; color: var(--warn); }
+.ted-actions { display: flex; flex-direction: column; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--border); }
+.ted-actions textarea {
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical;
+}
+
 /* modal + overlay */
 .overlay { position: fixed; inset: 0; background: rgba(16, 24, 40, .35); z-index: 20; }
 .modal { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; }

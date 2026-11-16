@@ -8,6 +8,7 @@ agent; Studio artifacts raise ``ComingSoon`` until structured output lands in st
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from api.schemas import (
     ArtifactKind,
@@ -17,8 +18,11 @@ from api.schemas import (
     Note,
     SourceDetail,
     SourceInfo,
+    TedJob,
+    TedResumeRequest,
 )
 from agents import chat
+from core import ted_jobs
 from core.store import store
 
 
@@ -91,6 +95,7 @@ def run_chat(req: ChatRequest) -> ChatResponse:
 # -- studio (artifacts) --------------------------------------------------------
 
 ARTIFACTS: list[ArtifactKind] = [
+    ArtifactKind(key="ted", title="TED Talk", icon="🎤", status="ready"),
     ArtifactKind(key="infographic", title="Infographic", icon="📊", status="planned"),
     ArtifactKind(key="powerpoint", title="PowerPoint", icon="📑", status="planned"),
     ArtifactKind(key="summary", title="Summary", icon="📄", status="planned"),
@@ -109,6 +114,83 @@ def generate_artifact(kind: str, impl: str) -> Note:
     artifact = _ARTIFACTS_BY_KEY.get(kind)
     title = artifact.title if artifact else "This artifact"
     raise ComingSoon(f"{title} generation is coming soon.")
+
+
+# -- ted talks -----------------------------------------------------------------
+
+
+def _ted_view(job: dict, error: str | None = None) -> TedJob:
+    """Join the thin ted_jobs row with the talk's content from the checkpoint."""
+    import agents.ted as ted
+
+    values = ted.get_values(job["job_id"])
+    brief = values.get("brief")
+    critique = values.get("critique")
+    return TedJob(
+        job_id=job["job_id"],
+        status=job["status"],
+        created_at=job["created_at"],
+        topic=brief.topic if brief else None,
+        script_he=values.get("script_he"),
+        word_count=values.get("word_count"),
+        revision_count=values.get("revision_count"),
+        critique_notes=critique.issues if critique else [],
+        audio_url=f"/api/ted/{job['job_id']}/audio" if values.get("audio_path") else None,
+        error=error,
+    )
+
+
+def start_ted() -> TedJob:
+    """Create a job and run the graph up to the approval interrupt (takes minutes)."""
+    import agents.ted as ted
+
+    job_id = uuid.uuid4().hex[:12]
+    ted_jobs.create(job_id)
+    try:
+        ted.run_start(job_id)
+    except Exception as exc:
+        ted_jobs.set_status(job_id, "failed")
+        return _ted_view(ted_jobs.get(job_id), error=str(exc))
+    return _ted_view(ted_jobs.get(job_id))
+
+
+def list_ted() -> list[TedJob]:
+    return [_ted_view(job) for job in ted_jobs.list_jobs()]
+
+
+def get_ted(job_id: str) -> TedJob | None:
+    job = ted_jobs.get(job_id)
+    return _ted_view(job) if job else None
+
+
+def resume_ted(job_id: str, req: TedResumeRequest) -> TedJob | None:
+    """Approve or request changes. Also the retry path for a failed job:
+    run_resume detects there is no pending interrupt and re-runs the failed node."""
+    import agents.ted as ted
+
+    if ted_jobs.get(job_id) is None:
+        return None
+    try:
+        result = ted.run_resume(job_id, req.model_dump())
+    except Exception as exc:
+        ted_jobs.set_status(job_id, "failed")
+        return _ted_view(ted_jobs.get(job_id), error=str(exc))
+    status = "audio_ready" if result.get("audio_path") else "pending_approval"
+    ted_jobs.set_status(job_id, status)
+    return _ted_view(ted_jobs.get(job_id))
+
+
+def ted_audio_path(job_id: str) -> Path | None:
+    import agents.ted as ted
+
+    if ted_jobs.get(job_id) is None:
+        return None
+    audio_path = ted.get_values(job_id).get("audio_path")
+    return Path(audio_path) if audio_path and Path(audio_path).is_file() else None
+
+
+def delete_ted(job_id: str) -> bool:
+    return ted_jobs.delete(job_id)
 
 
 # -- notes ---------------------------------------------------------------------

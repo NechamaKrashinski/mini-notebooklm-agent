@@ -213,6 +213,7 @@ async function loadArtifacts() {
 }
 
 async function generateArtifact(a) {
+  if (a.key === "ted") return startTed();
   try {
     await api.send("POST", "/api/studio/generate", { kind: a.key });
   } catch (e) {
@@ -247,6 +248,123 @@ async function saveNote(content) {
   const title = content.split("\n")[0].slice(0, 50);
   await api.send("POST", "/api/notes", { title, content });
   loadNotes();
+}
+
+/* ---- ted talks ------------------------------------------------------------- */
+
+// Show a breathing icon and bouncing dots inside `el`, so minutes-long graph
+// runs visibly keep moving. The caller replaces the content when done.
+function showBusy(el, icon, text) {
+  el.innerHTML = `<span class="busy-icon">${icon}</span>${escapeHtml(text)}
+    <span class="dots"><span></span><span></span><span></span></span>`;
+}
+
+const TED_STATUS = {
+  pending_approval: "ממתינה לאישור",
+  audio_ready: "מוכנה 🎧",
+  failed: "נכשלה",
+};
+
+async function loadTed() {
+  const jobs = await api.get("/api/ted");
+  const ul = $("ted-list");
+  ul.innerHTML = "";
+  if (!jobs.length) {
+    ul.innerHTML = `<div class="note-empty">No talks yet — click TED Talk above.</div>`;
+    return;
+  }
+  for (const j of jobs) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="n-title" title="${escapeHtml(j.topic || j.job_id)}">${escapeHtml(
+      j.topic || j.job_id
+    )}</span><span class="ted-status ${j.status}">${TED_STATUS[j.status]}</span>
+      <button class="icon-btn danger">✕</button>`;
+    li.querySelector(".n-title").onclick = () => openTed(j);
+    li.querySelector("button").onclick = async () => {
+      await api.send("DELETE", `/api/ted/${j.job_id}`);
+      loadTed();
+    };
+    ul.appendChild(li);
+  }
+}
+
+async function startTed() {
+  const pending = addMessage("system", "");
+  showBusy(pending, "🎙", "Writing your TED talk");
+  try {
+    const job = await api.send("POST", "/api/ted");
+    pending.remove();
+    openTed(job);
+  } catch (e) {
+    pending.remove();
+    addMessage("system", `⚠ ${e.message}`);
+  }
+  loadTed();
+}
+
+function openTed(job) {
+  state.tedJob = job;
+  $("ted-title").textContent = job.topic || "TED Talk";
+  $("ted-meta").textContent = [
+    TED_STATUS[job.status],
+    job.word_count != null ? `${job.word_count} מילים` : "",
+    job.revision_count != null ? `${job.revision_count} תיקונים` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  $("ted-script").textContent = job.script_he || "";
+
+  const critique = $("ted-critique");
+  critique.innerHTML = "";
+  if (job.status === "pending_approval") {
+    for (const note of job.critique_notes) {
+      const li = document.createElement("li");
+      li.textContent = note;
+      critique.appendChild(li);
+    }
+  }
+
+  $("ted-error").textContent = job.error ? `⚠ ${job.error}` : "";
+  $("ted-error").classList.toggle("hidden", !job.error);
+
+  const audio = $("ted-audio");
+  audio.classList.toggle("hidden", !job.audio_url);
+  if (job.audio_url) audio.src = job.audio_url;
+  else audio.removeAttribute("src");
+
+  const pendingApproval = job.status === "pending_approval";
+  $("ted-feedback").value = "";
+  $("ted-feedback").classList.toggle("hidden", !pendingApproval);
+  $("ted-approve").classList.toggle("hidden", !pendingApproval);
+  $("ted-revise").classList.toggle("hidden", !pendingApproval);
+  $("ted-retry").classList.toggle("hidden", job.status !== "failed");
+  $("ted-save").classList.toggle("hidden", job.status !== "audio_ready");
+
+  $("ted-modal").classList.remove("hidden");
+  $("overlay").classList.remove("hidden");
+}
+
+async function resumeTed(action) {
+  const job = state.tedJob;
+  const feedback = $("ted-feedback").value.trim() || null;
+  const buttons = ["ted-approve", "ted-revise", "ted-retry"].map($);
+  buttons.forEach((b) => (b.disabled = true));
+  if (action === "approve") showBusy($("ted-meta"), "🎙", "Recording your talk");
+  else showBusy($("ted-meta"), "✍", "Revising the script");
+  try {
+    openTed(await api.send("POST", `/api/ted/${job.job_id}/resume`, { action, feedback }));
+  } catch (e) {
+    $("ted-meta").textContent = `⚠ ${e.message}`;
+  } finally {
+    buttons.forEach((b) => (b.disabled = false));
+    loadTed();
+  }
+}
+
+function closeTed() {
+  $("ted-audio").pause();
+  $("ted-modal").classList.add("hidden");
+  $("overlay").classList.add("hidden");
 }
 
 /* ---- viewer modal ---------------------------------------------------------- */
@@ -285,11 +403,27 @@ $("new-chat").onclick = () => {
 };
 
 $("close-viewer").onclick = closeViewer;
-$("overlay").onclick = closeViewer;
+$("overlay").onclick = () => {
+  closeViewer();
+  closeTed();
+};
+
+$("close-ted").onclick = closeTed;
+$("ted-approve").onclick = () => resumeTed("approve");
+$("ted-revise").onclick = () => resumeTed("revise");
+$("ted-retry").onclick = () => resumeTed("approve");
+$("ted-save").onclick = async () => {
+  const job = state.tedJob;
+  await api.send("POST", "/api/notes", {
+    title: `🎤 ${job.topic || "TED Talk"}`,
+    content: job.script_he || "",
+  });
+  loadNotes();
+};
 
 /* ---- init ------------------------------------------------------------------ */
 
 (async function init() {
-  await Promise.all([loadSources(), loadArtifacts(), loadNotes()]);
+  await Promise.all([loadSources(), loadArtifacts(), loadNotes(), loadTed()]);
   renderEmptyState();
 })();

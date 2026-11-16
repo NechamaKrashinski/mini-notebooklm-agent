@@ -58,6 +58,8 @@
         <div class="panel-head"><h2>Studio</h2></div>
         <p class="muted small">Generate grounded artifacts from your sources.</p>
         <div id="artifacts" class="artifact-grid"></div>
+        <div class="panel-head"><h2>TED Talks</h2></div>
+        <ul id="ted-list" class="note-list"></ul>
         <div class="panel-head"><h2>Notes</h2></div>
         <ul id="notes" class="note-list"></ul>
       </aside>
@@ -71,6 +73,33 @@
           <button id="close-viewer" class="ghost-btn">✕</button>
         </div>
         <pre id="viewer-content" class="viewer-content"></pre>
+      </div>
+    </div>
+
+    <!-- TED TALK MODAL: approval gate / player / retry --------------------->
+    <div id="ted-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 id="ted-title">TED Talk</h3>
+          <button id="close-ted" class="ghost-btn">✕</button>
+        </div>
+        <div class="ted-body">
+          <div id="ted-meta" class="muted small"></div>
+          <div id="ted-error" class="msg system hidden"></div>
+          <ul id="ted-critique" class="ted-critique"></ul>
+          <audio id="ted-audio" class="hidden" controls></audio>
+          <pre id="ted-script" class="viewer-content" dir="rtl"></pre>
+        </div>
+        <div id="ted-actions" class="ted-actions">
+          <textarea id="ted-feedback" rows="2" dir="rtl"
+                    placeholder="משוב לשינוי (לא חובה)…"></textarea>
+          <div class="add-actions">
+            <button id="ted-approve" class="pill-btn primary">אישור</button>
+            <button id="ted-revise" class="pill-btn">בקשת שינויים</button>
+            <button id="ted-retry" class="pill-btn primary hidden">נסי שוב</button>
+            <button id="ted-save" class="pill-btn hidden">＋ Save to note</button>
+          </div>
+        </div>
       </div>
     </div>
 
