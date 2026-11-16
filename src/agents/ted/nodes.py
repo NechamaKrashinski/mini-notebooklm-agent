@@ -1,4 +1,10 @@
 import re
+import os
+from pathlib import Path
+
+from pydub import AudioSegment as PydubSegment
+
+from agents.ted.tts import get_provider
 from langgraph.types import interrupt
 from agents.ted.state import MAX_REVISIONS, TedState,HARD_CAP, WORD_MAX, WORD_MIN
 from agents.ted.prompts import PLAN_TALK_SYSTEM,PLAN_TALK_USER,WRITE_TALK_SYSTEM,WRITE_TALK_USER,CRITIQUE_SYSTEM,CRITIQUE_USER,REVISE_SYSTEM,REVISE_USER
@@ -7,6 +13,11 @@ from core.sources import build_sources_overview, format_docs
 from core.store import store
 from agents.ted.schemas import CritiqueResult, TalkBrief
 from agents.ted.state import TARGET_WORDS, WORD_MIN, WORD_MAX
+
+TED_DIR = Path("data/ted")
+
+# ElevenLabs recommends keeping each generation under ~800-900 characters.
+MAX_CHUNK_CHARS = 800
 
 def plan_talk(state: TedState) -> dict:
     overview = build_sources_overview(store=store)
@@ -45,6 +56,17 @@ def write_talk(state:TedState) -> dict:
 def _sentences(text: str) -> list[str]:
     return re.split(r"(?<=[.!?])\s+", text.strip())
 
+def _chunk_script(script: str, max_chars: int = MAX_CHUNK_CHARS) -> list[str]:
+    """Group consecutive sentences into chunks of up to max_chars."""
+    chunks, current = [], ""
+    for sentence in _sentences(script):
+        if current and len(current) + len(sentence) + 1 > max_chars:
+            chunks.append(current)
+            current = ""
+        current = f"{current} {sentence}".strip()
+    if current:
+        chunks.append(current)
+    return chunks
 
 def count_words(state: TedState) -> dict:
     script = state["script_he"]
@@ -111,4 +133,28 @@ def approval(state: TedState) -> dict:
 def after_approval(state: TedState) -> dict:
     if state.get("human_feedback"):
         return "revise"
-    return "done"
+    return "synthesize_audio"
+
+def synthesize_audio(state: TedState) -> dict:
+    """TTS: single speaker, chunked by sentences, concatenated into talk.mp3."""
+    voice_id = os.getenv("TED_VOICE_ID")
+    if not voice_id:
+        raise ValueError("Set TED_VOICE_ID to synthesize the talk.")
+
+    out_dir = TED_DIR / state["job_id"]
+    out_dir.mkdir(parents=True, exist_ok=True)
+    provider = get_provider()
+
+    chunk_paths = []
+    for i, chunk in enumerate(_chunk_script(state["script_he"])):
+        path = out_dir / f"chunk_{i:03}.mp3"
+        provider.synthesize_dialogue([(chunk, voice_id)], path)
+        chunk_paths.append(path)
+
+    talk = PydubSegment.empty()
+    for path in chunk_paths:
+        talk += PydubSegment.from_mp3(path) + PydubSegment.silent(duration=200)
+    talk_path = out_dir / "talk.mp3"
+    talk.export(talk_path, format="mp3")
+    return {"audio_path": str(talk_path)}
+

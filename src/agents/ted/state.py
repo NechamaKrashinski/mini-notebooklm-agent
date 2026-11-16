@@ -23,3 +23,6 @@ class TedState(TypedDict, total=False):
     critique: CritiqueResult | None
     revision_count: int
     human_feedback: str | None
+    # audio
+    audio_path: str | None
+
